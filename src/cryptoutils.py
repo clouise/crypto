@@ -2,6 +2,7 @@
 from base64 import b64encode
 from base64 import b64decode
 from Crypto.Cipher import AES
+import random
 
 
 LETTER_FREQUENCIES = {
@@ -36,10 +37,10 @@ LETTER_FREQUENCIES = {
 
 
 def xor(string1, string2):
-    b = bytearray(len(string1))
+    b = [0] * len(string1)
     for i in range(len(string1)):
         b[i] = string1[i] ^ string2[i % len(string2)]
-    return b
+    return bytes(b)
 
 
 def single_byte_decrypt(cipher):
@@ -70,7 +71,7 @@ def single_byte_decrypt_file(text_file):
         outputs = []
         for line in f:
             s = line.strip()
-            s = bytearray.fromhex(s)
+            s = bytes.fromhex(s)
             outputs.append(single_byte_decrypt(s))
         f.close()
     return max(outputs, key = lambda x : x[1])
@@ -122,51 +123,95 @@ def read_base64_file(file_path):
         for line in f:
             text += (line.strip())
     f.close()
-    b64 = b64decode(text.encode('utf-8'))
+    b64 = b64decode(text)
     return b64
 
 
 def decrypt_ecb(barray, key):
     aes = AES.new(key, AES.MODE_ECB)
-    return bytearray(aes.decrypt(barray))
+    return bytes(aes.decrypt(barray))
 
 
 def encrypt_ecb(barray, key):
+    barray = pad_pkcs7(barray, len(key))
     aes = AES.new(key, AES.MODE_ECB)
-    return bytearray(aes.encrypt(barray))
+    return bytes(aes.encrypt(barray))
 
 
 def encrypt_cbc(plaintext, key, IV):
     plaintext = pad_pkcs7(plaintext, len(key))
-    ciphertext = bytearray(len(plaintext))
+    ciphertext = []
     prev_block = IV
     for block in chunks(plaintext, len(key)):
         xored = xor(block, prev_block)
         encrypt = encrypt_ecb(xored, key)
-        prev_block = xored
-        ciphertext.append(encrypt)
-    return ciphertext
+        prev_block = encrypt
+        ciphertext.extend(encrypt)
+    return bytes(ciphertext)
 
 
 def decrypt_cbc(ciphertext, key, IV):
-    plaintext = bytearray()
+    plaintext = []
     prev_block = IV
     for block in chunks(ciphertext, len(key)):
-        decrypt = decrypt_ecb(block, str(key, 'utf-8'))
+        decrypt = decrypt_ecb(block, key)
         xored = xor(decrypt, prev_block)
         prev_block = block
-        decrypt = (bytes(xored))
+        decrypt = bytes(xored)
         plaintext.extend(xored)
-    return plaintext
+    return bytes(plaintext)
+
 
 def detect_ecb(barray, keysize):
     blocks = list(chunks(barray, keysize))
     for i in blocks:
         if blocks.count(i) > 1:
-            print("ECB Detected")
+            return True
+        else:
+            return False
 
 
 def pad_pkcs7(barray, blocksize):
     diff = (blocksize - len(barray)) % blocksize
-    pad = bytearray([diff] * diff)
+    pad = bytes([diff] * diff)
     return barray + pad
+
+
+def gen_key(length):
+    barray = []
+    for i in random.sample(range(0,127), length):
+        barray.append(i)
+    return bytes(barray)
+
+
+def encryption_chooser(string, key):
+    choice = random.randint(0,1)
+    key = gen_key(16)
+    IV = key
+    if choice == 0:
+        return encrypt_ecb(string, key)
+    if choice == 1:
+        return encrypt_cbc(string, key, IV)
+
+
+def encryption_oracle(string, key):
+    append = "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkgaGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBqdXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUgYnkK"
+    append = bytes(b64decode(append))
+    plaintext = string + append
+    ciphertext = encrypt_ecb(plaintext, key)
+    return(ciphertext)
+
+
+def break_ecb(length):
+    key = gen_key(16)
+    broken = ""
+    for i in range(length - 1, 0, -1):
+        input_block = bytes('A' * i, 'utf-8')
+        crypto = encryption_oracle(input_block, key)[:length]
+        for k in range(1,256):
+            c2 = input_block + bytes(broken, 'utf-8') + bytes([k])
+            crypto2 = encryption_oracle(c2, key)[:length]
+            if crypto2 == crypto:
+                broken += str(bytes([k]), 'utf-8')
+                break
+    return broken
