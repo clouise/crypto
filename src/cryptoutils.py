@@ -172,9 +172,12 @@ def detect_ecb(barray, keysize):
 
 
 def pad_pkcs7(barray, blocksize):
+    if type(barray) == str:
+        barray = bytes(barray, 'utf-8')
     diff = (blocksize - len(barray)) % blocksize
     pad = bytes([diff] * diff)
-    return barray + pad
+    padded = barray + pad
+    return padded
 
 
 def gen_key(length):
@@ -215,3 +218,39 @@ def break_ecb(length):
                 broken += str(bytes([k]), 'utf-8')
                 break
     return broken
+
+
+def parse_kv(cookie):
+    dic = {}
+    for kv in cookie.split('&'):
+        kv = kv.split('=')
+        dic[kv[0]] = kv[1]
+    return dic
+
+
+def profile_for(email, key):
+    email = email.replace('&', '')
+    email = email.replace('=', '')
+    string = "email=" + email + "&uid=10&role=user"
+    string = bytes(string, 'utf-8')
+    return encrypt_ecb(string, key)
+
+
+def ecb_cut_and_paste(blocksize):
+    key = "YELLOW SUBMARINE"
+    key = bytes(key, 'utf-8')
+    needed = "email=&uid=10&role="
+    remaining = (blocksize - len(needed)) % blocksize
+    prefix = profile_for('A' * remaining, key)
+    prefix = prefix[:len(needed) + remaining]
+
+    needed = "email="
+    remaining = (blocksize - len(needed)) % blocksize
+    admin = 'admin'
+    admin = str(pad_pkcs7(admin, blocksize), 'utf-8')
+
+    input_profile = ('A' * remaining) + admin
+    postfix = profile_for(input_profile, key)
+    postfix = postfix[len(needed) + remaining: len(needed) + remaining + blocksize]
+
+    return prefix + postfix, key

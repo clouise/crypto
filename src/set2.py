@@ -29,3 +29,9 @@ length = len(encryption_oracle(bytes(), key))
 print(break_ecb(length))
 
 # Challenge 13
+print(parse_kv("foo=bar&baz=qux&zap=zazzle"))
+profile = ecb_cut_and_paste(blocksize)
+blocksize = 16
+decrypt_ecb(profile[0], profile[1])
+
+# challenge 14
