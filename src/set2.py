@@ -30,8 +30,12 @@ print(break_ecb(length))
 
 # Challenge 13
 print(parse_kv("foo=bar&baz=qux&zap=zazzle"))
-profile = ecb_cut_and_paste(blocksize)
 blocksize = 16
-decrypt_ecb(profile[0], profile[1])
+profile = ecb_cut_and_paste(blocksize)
+#print(decrypt_ecb(profile[0], profile[1]))
 
-# challenge 14
+# Challenge 14
+plaintext = 'BBBB' + 'A' * 16*2
+cipher = encryption_oracle2(plaintext, key)
+print(detect_ecb(cipher, 16))
+

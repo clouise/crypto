@@ -48,7 +48,7 @@ def single_byte_decrypt(cipher):
     key = ""
     plaintext = ""
     decodes = []
-    for j in range(0,255):
+    for j in range(0,256):
         text = xor(cipher, [j])
         if max_score < score_it(text):
             max_score = score_it(text)
@@ -90,9 +90,7 @@ def guess_keysize(barray):
         b1 = barray[:i]
         b2 = barray[i:i*2]
         b3 = barray[i*2:i*3]
-        b4 = barray[i*3:i*4]
-        b5 = barray[i*4:i*5]
-        d = (hamming(b1, b2) + hamming(b1, b3) + hamming(b1,b4) + hamming(b1, b5)) / (i*5)
+        d = (hamming(b1, b2) + hamming(b1, b3)) / (i*3)
         keysize.append([i, d])
     return sorted(keysize, key = lambda x: x[1])[0:3]
 
@@ -167,8 +165,6 @@ def detect_ecb(barray, keysize):
     for i in blocks:
         if blocks.count(i) > 1:
             return True
-        else:
-            return False
 
 
 def pad_pkcs7(barray, blocksize):
@@ -179,6 +175,16 @@ def pad_pkcs7(barray, blocksize):
     padded = barray + pad
     return padded
 
+
+def unpad_pkcs7(barray):
+    if type(barray) == str:
+        barray = bytes(barray, 'utf-8')
+    padding = barray[-1]
+    for i in range(len(barray) - 1, len(barray) - padding, -1):
+        if barray[i] != padding:
+            return "Invalid Padding"
+        else:
+            return barray[0:len(barray) - padding]
 
 def gen_key(length):
     barray = []
@@ -254,3 +260,14 @@ def ecb_cut_and_paste(blocksize):
     postfix = postfix[len(needed) + remaining: len(needed) + remaining + blocksize]
 
     return prefix + postfix, key
+
+
+def encryption_oracle2(string, key):
+    prepend = "randomString"
+    append = "Um9sbGluJyBpbiBteSA1LjAKV2l0aCBteSByYWctdG9wIGRvd24gc28gbXkgaGFpciBjYW4gYmxvdwpUaGUgZ2lybGllcyBvbiBzdGFuZGJ5IHdhdmluZyBqdXN0IHRvIHNheSBoaQpEaWQgeW91IHN0b3A/IE5vLCBJIGp1c3QgZHJvdmUgYnkK"
+    prepend = bytes(prepend, 'utf-8')
+    append = bytes(b64decode(append))
+    string = bytes(string, 'utf-8')
+    plaintext = prepend + string + append
+    ciphertext = encrypt_ecb(plaintext, key)
+    return(ciphertext)
